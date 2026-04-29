@@ -1,0 +1,45 @@
+#!/u/y01146/miniconda/envs/sandbox/bin/bash
+
+exec < /dev/tty
+
+AFILE=$1
+REPO_PATH="/u/y01137/test5"
+METAFILE="$REPO_PATH/metadata"
+type=''
+pro_type=''
+lang=''
+owner=''
+desc=''
+new=''
+mon=''
+mby=''
+
+mod_exist=$(awk -F ';;' -v val="$AFILE" '$1 == val '  $METAFILE)
+if [  -z "$mod_exist" ]; then
+    echo "No metadata entry found for $AFILE"
+    exit 0
+fi
+
+pro_type=$(awk -F ';;' -v val="$AFILE" '$1 == val {print substr($2, 1)}'  $METAFILE)
+type=$(awk -F ';;' -v val="$AFILE" '$1 == val {print substr($3, 1)}'  $METAFILE)
+lang=$(awk -F ';;' -v val="$AFILE" '$1 == val {print substr($4, 1)}'  $METAFILE)
+desc=$(awk -F ';;' -v val="$AFILE" '$1 == val {print substr($5, 1)}'  $METAFILE)
+owner=$(awk -F ';;' -v val="$AFILE" '$1 == val {print substr($6, 1)}'  $METAFILE)
+mon=$(awk -F ';;' -v val="$AFILE" '$1 == val {print substr($7, 1)}'  $METAFILE)
+mby=$(awk -F ';;' -v val="$AFILE" '$1 == val {print substr($8, 1)}'  $METAFILE)
+
+echo ""
+echo "-------------------------------------------------------------"
+echo "               Metadata of $AFILE                              "
+echo "-------------------------------------------------------------"
+
+echo "Processor type : '$pro_type'"
+echo "Type : '$type'"
+echo "Language : '$lang'"
+echo "Description : '$desc'"
+echo "Owner : '$owner'"
+echo "Modified on : '$mon'"
+echo "Modified by : '$mby'"
+
+echo "-------------------------------------------------------------"
+echo ""

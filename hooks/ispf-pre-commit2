@@ -1,0 +1,363 @@
+#!/u/y01146/miniconda/envs/sandbox/bin/bash
+
+AFILE=''
+ADIR=''
+skip=''
+REPO_PATH=$(git rev-parse --show-toplevel)
+METAFILE="/u/y01137/test5/metadata"
+AUXMETA="$REPO_PATH/metadata_to_be_added.aux"
+aux_proc=''
+ISPFMETA="$REPO_PATH/.git/ispf_metadata"
+CHGMETA_FILE="$REPO_PATH/changed_metadata"
+VAL_DIR="/u/y01137/test5/validation"
+
+type=''
+end_type=''
+lang=''
+errors=0
+owner=''
+desc=''
+new=''
+error_msg=''
+main_status=''
+main_status1=''
+done_metadata=(" ")
+tempfile="$REPO_PATH/commit-logs/precommit.log"
+meta_temp="$REPO_PATH/.git/ispf_metadata_temp"
+rm $tempfile > /dev/null 2>&1
+> "$meta_temp"
+
+Filename_check()   {
+    file_noext="${AFILE%.*}"
+    if [ "${#file_noext}" -gt 8 ]; then
+        error_msg="Filename longer than 8 chars"
+        skip='Y'
+                return
+    fi
+
+    echo ""
+    if [[ $file_noext =~ ^[a-zA-Z0-9$#@]+$ ]]; then
+        :
+    else
+            error_msg="Filename is invalid"
+        skip='Y'
+                return
+    fi
+
+    if [[ $file_noext =~ ^[a-zA-Z] ]]; then
+        :
+    else
+            error_msg="Filename is invalid"
+        skip='Y'
+                return
+    fi
+}
+
+Check_suffix()   {
+    file_noext="${AFILE%.*}"
+    key="$lang:$type"
+        case "$key" in
+            "ASM:PROGRAM") extn=".asm" ;;
+                "COB:PROGRAM") extn=".cbl" ;;
+                "ASM:MACRO") extn=".mac" ;;
+                "COB:MACRO") extn=".cpy" ;;
+                "COB:COPY BOOK") extn=".cpy" ;;
+                "IST:ISPF") extn=".itbl" ;;
+                IST:*) extn=".tbl" ;;
+                "ISS:ISPF") extn=".iskl" ;;
+                ISS:*) extn=".skl" ;;
+                "ISM:ISPF") extn=".imsg" ;;
+                ISM:*) extn=".msg" ;;
+                "ISP:ISPF") extn=".ipnl" ;;
+                ISP:*) extn=".pnl" ;;
+                IMS:*) extn=".ims" ;;
+                ISR:*) extn=".rexx" ;;
+                ISC:*) extn=".clist" ;;
+                CIC:*) extn=".cics" ;;
+                *:JCL) extn=".jcl" ;;
+                "DAT:DATA") extn=".dat" ;;
+                *) extn="" ;;
+        esac
+
+    newfile="${file_noext}$extn"
+	if [ "$AFILE" != "$newfile" ]; then
+	    if [ "$AFILE" != "$file_noext" ];then
+		        echo "File extension for $file_noext incorrect." >> "$tempfile"
+				return 1
+		else
+	        mv "${ADIR}/${AFILE}" "${ADIR}/${newfile}"
+            git rm --cached "${ADIR}/${AFILE}" > /dev/null 
+            git add "${ADIR}/${newfile}"
+            AFILE="$newfile"  
+		fi
+	fi
+}
+
+
+
+Process_added_modules()  {
+
+#Check contents of metadata_to_be_added.aux file
+    if [ ! -f "$AUXMETA" ]; then
+        echo "Auxillary metadata file not found" >> "$tempfile"
+    fi
+
+        tailrec=$(tail -n +2 "$AUXMETA")
+        if [ -n "$tailrec" ]; then
+
+        read -r header
+        while IFS=',' read -r addfile aproc atype alang adesc aown; do
+                    Afiles=$(git diff --cached --name-only --diff-filter=A | grep -v '^.git*' | grep -v '^hooks/'  | grep -v '^changed_metadata' )
+                    found='N'
+                    for A_FILE in $Afiles;do
+                AFILE=$(basename "$A_FILE")
+                        ADIR=$(dirname "$A_FILE")
+                        if [ "$AFILE" = "$addfile" ]; then
+                            found='Y'
+                        fi
+                    done
+                    if [[ "$found" == "N" ]]; then
+                        echo "No new files named $addfile found. Not added to metadata file." >> "$tempfile"
+                        done_metadata+=("$addfile")
+                    fi
+                    AFILE=$addfile
+            Filename_check
+            ae=$(awk -F ';' -v val="$aproc" '$1 == val '  "$VAL_DIR/endv_type_list")
+            if [ -z "$ae" ]; then
+                        echo "Invalid processor type specified for "$addfile" in aux metadata file. Not added to metadata file." >>"$tempfile"
+                                continue
+                        fi
+
+                    at=$( awk -v val="$atype" '$0 == val'   "$VAL_DIR/type_list")
+            if [ -z "$at" ]; then
+                        echo "Invalid type specified for "$addfile" in aux metadata file. Not added to metadata file." >>"$tempfile"
+                                continue
+                        fi
+                        case "$atype" in
+                P) type="PROGRAM";;
+                    C) type="COPY BOOK";;
+                    M) type="MACRO";;
+                    J) type="JCL";;
+                    T) type="TABLE";;
+                    D) type="DATA";;
+                    S) type="SUBROUTINE";;
+                    I) type="ISPF";;
+                *) type="Invalid";;
+            esac
+
+                    al=$(awk -v val="$alang" '$0 == val'  "$VAL_DIR/lang_list")
+            if [ -z "$al" ]; then
+                        echo "Invalid language specified for "$addfile" in aux metadata file. Not added to metadata file." >>"$tempfile"
+                                continue
+                        fi
+
+                    ao=$(awk -F ':' -v val="$aown" '$2 == val '  "$VAL_DIR/owner_list")
+            if [ -z "$ao" ]; then
+                        echo "Invalid owner specified for "$addfile" in aux metadata file. Not added to metadata file." >>"$tempfile"
+                                continue
+                        fi
+
+                    if [ ${#adesc} -gt 30 ]; then
+            echo "Description should not be longer than 30 characters!"
+                        echo "Description for "$addfile" longer than 30 characters! Not added to metadata file." >>"$tempfile"
+                                continue
+                        fi
+
+                        userid=$(whoami)
+            tstamp=$(date +"%Y-%m-%d_%H:%M:%S")
+
+            lang=$alang
+			aux_proc='Y'			
+			if ! Check_suffix; then
+			    continue
+			fi
+            addfile=$AFILE
+
+            act='A'
+            mod_exist=$(awk -F ';;' -v val="$addfile" '$1 == val '  $METAFILE)
+            if [  -n "$mod_exist" ]; then
+                            act='M'
+            fi
+
+            echo "$AFILE;;$end_type;;$type;;$lang;;$adesc;;$aown;;$tstamp;;$userid;;$act" >> $CHGMETA_FILE
+            if [ "$act" = "M" ]; then
+                echo "Metadata edited for "$addfile"!" >>"$tempfile"
+            else
+                echo "Metadata written for "$addfile"!" >>"$tempfile"
+            fi
+
+            done_metadata+=("$addfile")
+        done < "$AUXMETA"
+        else
+        echo "No new file entries added in auxillary metadata file." >> "$tempfile"
+        fi
+
+    while IFS= read -r line; do
+            im_file=$(awk -F ';;' '{print $1}' <<< "$line")
+            im_ptype=$(awk -F ';;' '{print $2}' <<< "$line")
+                im_type=$(awk -F ';;' '{print $3}' <<< "$line")
+                im_lang=$(awk -F ';;' '{print $4}' <<< "$line")
+                im_desc=$(awk -F ';;' '{print $5}' <<< "$line")
+                im_own=$(awk -F ';;' '{print $6}' <<< "$line")
+        A_FILE="$im_file"
+        AFILE=$(basename "$A_FILE")
+        ADIR=$(dirname "$A_FILE")
+        done_metadata+=(" ")
+            if [[ "${done_metadata[*]}" == *" $AFILE "* ]]; then
+                    echo "${line}DONE" >> "$meta_temp"
+            continue
+        fi
+        new='Y'
+        Filename_check
+
+                if [ "$skip" = 'Y' ]; then
+                    echo "${line}${error_msg}" >> "$meta_temp"
+                        errors=$((errors + 1))
+            continue
+                fi
+
+            mod_exist=$(awk -F ';;' -v val="$AFILE" '$1 == val '  $METAFILE)
+            if [  -n "$mod_exist" ]; then
+                act='M'
+            else
+                act='A'
+            fi
+
+
+        ae=$(awk -F ';' -v val="$im_ptype" '$1 == val '  "$VAL_DIR/endv_type_list")
+        if [ -z "$ae" ]; then
+                        echo "${line}Invalid processor type" >> "$meta_temp"
+                        errors=$((errors + 1))
+            continue
+                fi
+
+                at=$( awk -v val="$im_type" '$0 == val'   "$VAL_DIR/type_list")
+        if [ -z "$at" ]; then
+                        echo "${line}Invalid type" >> "$meta_temp"
+                        errors=$((errors + 1))
+                        continue
+               fi
+                        case "$im_type" in
+            P) type="PROGRAM";;
+                C) type="COPY BOOK";;
+                M) type="MACRO";;
+                J) type="JCL";;
+                T) type="TABLE";;
+                D) type="DATA";;
+                S) type="SUBROUTINE";;
+                I) type="ISPF";;
+            *) type="Invalid";;
+        esac
+
+                al=$(awk -v val="$im_lang" '$0 == val'  "$VAL_DIR/lang_list")
+        if [ -z "$al" ]; then
+                        echo "${line}Invalid language" >> "$meta_temp"
+                        errors=$((errors + 1))
+            continue
+                fi
+
+                ao=$(awk -F ':' -v val="$im_own" '$2 == val '  "$VAL_DIR/owner_list")
+        if [ -z "$ao" ]; then
+                        echo "${line}Invalid owner" >> "$meta_temp"
+                        errors=$((errors + 1))
+            continue
+                fi
+
+                if [ ${#im_desc} -gt 30 ]; then
+                        echo "${line}Description > 30 chars" >> "$meta_temp"
+                        errors=$((errors + 1))
+            continue
+                fi
+
+        userid=$(whoami)
+        tstamp=$(date +"%Y-%m-%d_%H:%M:%S")
+        lang="$im_lang"
+
+		aux_proc='Y'			
+		if ! Check_suffix; then
+		    echo "${line}Incorrect file extension" >> "$meta_temp"
+            errors=$((errors + 1))
+		    continue
+		fi
+		
+        im_file="${ADIR}${AFILE}"
+        echo "$AFILE;;$im_ptype;;$type;;$lang;;$im_desc;;$im_own;;OK" >> "$meta_temp"
+        echo "$AFILE;;$im_ptype;;$type;;$lang;;$im_desc;;$im_own;;$tstamp;;$userid;;$act" >> $CHGMETA_FILE
+    done < "$ISPFMETA"
+        if [ "$errors" -gt 0 ]; then
+            main_status="ERR;;"
+        else
+            main_status="OK;;"
+    fi
+        echo "$main_status" > "$ISPFMETA"
+        cat "$meta_temp" >> "$ISPFMETA"
+}
+
+Process_modified_modules()  {
+        Mfiles=$(git diff --cached --name-only --diff-filter=M | grep -v '^.git*' | grep -v '^hooks/'  | grep -v '^changed_metadata' )
+
+if [ -z "$Mfiles" ]; then
+        return 0
+fi
+
+for M_FILE in $Mfiles;do
+    MFILE=$(basename "$M_FILE")
+    mod_exist=$(awk -F ';;' -v val="$MFILE" '$1 == val '  $METAFILE)
+    if [  -n "$mod_exist" ]; then
+            act="M"
+            end_type=$(awk -F ';;' -v val="$MFILE" '$1 == val {print substr($2, 1)}'  $METAFILE)
+        type=$(awk -F ';;' -v val="$MFILE" '$1 == val {print substr($3, 1)}'  $METAFILE)
+        lang=$(awk -F ';;' -v val="$MFILE" '$1 == val {print substr($4, 1)}'  $METAFILE)
+        desc=$(awk -F ';;' -v val="$MFILE" '$1 == val {print substr($5, 1)}'  $METAFILE)
+        owner=$(awk -F ';;' -v val="$MFILE" '$1 == val {print substr($6, 1)}'  $METAFILE)
+
+        userid=$(whoami)
+        tstamp=$(date +"%Y-%m-%d_%H:%M:%S")
+
+        echo "$MFILE;;$end_type;;$type;;$lang;;$desc;;$owner;;$tstamp;;$userid;;$act" >> $CHGMETA_FILE
+    else
+        main_status="NOMF;;"
+        main_status1="${main_status1}${MFILE};;"
+
+    fi
+done
+}
+
+Process_deleted_modules()  {
+        Dfiles=$(git diff --cached --name-only --diff-filter=D | grep -v '^.git*' | grep -v '^hooks/'  | grep -v '^changed_metadata' )
+
+if [ -z "$Dfiles" ]; then
+        return 0
+fi
+
+for D_FILE in $Dfiles;do
+    DFILE=$(basename "$D_FILE")
+    userid=$(whoami)
+    tstamp=$(date +"%Y-%m-%d_%H:%M:%S")
+    mod_exist=$(awk -F ';;' -v val="$DFILE" '$1 == val '  $METAFILE)
+    if [  -n "$mod_exist" ]; then
+            act="M"
+            end_type="DELETED"
+        type=$(awk -F ';;' -v val="$DFILE" '$1 == val {print substr($3, 1)}'  $METAFILE)
+        lang=$(awk -F ';;' -v val="$DFILE" '$1 == val {print substr($4, 1)}'  $METAFILE)
+        desc=$(awk -F ';;' -v val="$DFILE" '$1 == val {print substr($5, 1)}'  $METAFILE)
+        owner=$(awk -F ';;' -v val="$DFILE" '$1 == val {print substr($6, 1)}'  $METAFILE)
+        echo "$DFILE;;$end_type;;$type;;$lang;;$desc;;$owner;;$tstamp;;$userid;;$act" >> $CHGMETA_FILE
+    else
+            main_status="NOMF;;"
+            main_status1="${main_Status1}${DFILE};;"
+
+    fi
+
+done
+}
+
+> $CHGMETA_FILE
+
+Process_added_modules
+Process_modified_modules
+Process_deleted_modules
+
+echo "${main_status}${main_status1}" > "$ISPFMETA"
+cat "$meta_temp" >> "$ISPFMETA"
+

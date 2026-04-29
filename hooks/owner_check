@@ -1,0 +1,29 @@
+#!/u/y01146/miniconda/envs/sandbox/bin/bash
+
+opt=$1
+own1=$2
+own2=$3
+REPO_PATH=$(git rev-parse --show-toplevel)
+OWN_FILE="/u/y01137/test5/validation/owner_list"
+
+if ls $OWN_FILE 1> /dev/null 2>&1; then
+    :
+else
+    echo "owner_list file doesn't exist."
+	exit 1
+fi
+
+case "$opt" in
+    1) fam=$(awk -F ':' -v val="$own1" '$2 == val {print substr($1, 1)}' $OWN_FILE) 
+	   echo "$fam" ;;
+    2) fam1=$(awk -F ':' -v val="$own1" '$2 == val {print substr($1, 1)}' $OWN_FILE) 
+	   fam2=$(awk -F ':' -v val="$own2" '$2 == val {print substr($1, 1)}' $OWN_FILE)
+	   if [ "$fam1" = "$fam2" ]; then
+	       echo "Y"
+	   else
+	       echo "N"
+	   fi    ;;
+    * ) exit 1;;
+esac
+
+exit 0

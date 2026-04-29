@@ -1,0 +1,19 @@
+#!/u/y01146/miniconda/envs/sandbox/bin/bash
+
+
+BRANCH_NAME=$(git rev-parse --abbrev-ref HEAD)
+CCNO=$(echo "$BRANCH_NAME" | cut -c2-11 | sed 's/^0*//')
+REPO_PATH=$(git rev-parse --show-toplevel)
+COMMIT_MSG_FILE="$REPO_PATH/.git/commit_msg.txt"
+if echo "$CCNO" | grep -qE '^[0-9]+$'; then
+    export STEPLIB=PRD.Y01137.ISPF.ISPLLIB
+    RES=$(tsocmd exec "'PRD.Y01137.REXXLIB(CCSTEXT)'" "'$CCNO'")
+    read rcode stat ccown desc<<< "$RES"	
+    if [ "$rcode" = 0 ]; then       
+        echo "$BRANCH_NAME - $desc" > "$COMMIT_MSG_FILE"
+    else
+	echo "" > "$COMMIT_MSG_FILE"
+    fi
+fi
+ 
+exit 0

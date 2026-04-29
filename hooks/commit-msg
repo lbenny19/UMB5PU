@@ -1,0 +1,111 @@
+#!/u/y01146/miniconda/envs/sandbox/bin/bash
+
+COMMIT_MSG_FILE=$1
+COMMIT_MSG_CC=$(cat "$COMMIT_MSG_FILE" | cut -c2-11)
+COMMIT_MSG_CC=$(echo "$COMMIT_MSG_CC" | sed 's/^0*//')
+REPO_PATH=$(git rev-parse --show-toplevel)
+CHECKOWN_PATH="$REPO_PATH/hooks/owner_check"
+FAM="UMB"
+CCNO=$(cat "$COMMIT_MSG_FILE" | cut -c1-11)
+export STEPLIB=PRD.Y01137.ISPF.ISPLLIB
+val_to_own=''
+no_own_change=''
+tstamp=$(date +"%Y-%m-%d_%H:%M:%S")
+BRANCH_NAME=$(git rev-parse --abbrev-ref HEAD)
+
+tempfile="$REPO_PATH/commit-logs/precommit.log"
+permlog="$REPO_PATH/commit-logs/${BRANCH_NAME}_${tstamp}.log"
+
+mv "$tempfile" "$permlog"
+
+read_site_cntl()  {
+SITE_FILE="$REPO_PATH/validation/site_cntl"
+META_FILE="$REPO_PATH/metadata"
+
+if ls $SITE_FILE 1> /dev/null 2>&1; then
+    :
+else
+    echo "Site control file doesn't exist."
+        exit 1
+fi
+
+val_to_own=$(awk -F ':' -v val="VAL-CC-TO-APPL" '$1 == val {print substr($2, 1)}' $SITE_FILE)
+no_own_change=$(awk -F ':' -v val="PROHIBIT-OWNER-CHG" '$1 == val {print substr($2, 1)}' $SITE_FILE)
+}
+
+reverse_meta_exit()   {
+    git restore --staged $META_FILE
+    git restore $META_FILE
+        exit 1
+}
+
+
+RES=$(tsocmd exec "'PRD.Y01137.REXXLIB(CCSTEXT)'" "'$COMMIT_MSG_CC'")
+read rcode stat ccown desc <<< "$RES"
+if [ "$rcode" = 4 ] ; then
+        echo "$CCNO has already been closed. Commit cancelled."
+        reverse_meta_exit
+fi
+if [ "$rcode" = 2 ] ; then
+        echo "Could not get change control details. Commit cancelled."
+        reverse_meta_exit
+fi
+echo "ccown: $ccown"
+
+read_site_cntl
+
+Mfiles=$(git diff --cached --name-only | grep -vE '^(metadata|validation/|.git)'  | grep -v '^hooks/' )
+
+if [ -z "$Mfiles" ]; then
+    exit 0
+fi
+
+for M_FILE in $Mfiles;do
+    MFILE=$(basename "$M_FILE")
+    mod_exist=$(awk -F ';;' -v val="$MFILE" '$1 == val '  $META_FILE)
+
+    if [  -n "$mod_exist" ]; then
+        mown=$(awk -F ';;' -v val="$MFILE" '$1 == val {print substr($6, 1)}'  $META_FILE)
+
+                if [ "$val_to_own" = 'N' ]; then
+                        option=2
+                        result=$("$CHECKOWN_PATH" $option $mown $ccown)
+
+                        if [ "$result" != "Y" ]; then
+                                echo "Ownership of $MFILE not comapatible with CC 1. Commit cancelled."
+                                reverse_meta_exit
+                        fi
+                fi
+                if [ "$val_to_own" = 'Y' ]; then
+                    if [ "$ccown" != "$mown" ]; then
+                                echo "Ownership of $MFILE not comapatible with CC 2. Commit cancelled."
+                                reverse_meta_exit
+                    fi
+                fi
+                if [ "$val_to_own" = 'X' ]; then
+                    if [ "$ccown" != '===' ]; then
+                            option=2
+                            result=$("$CHECKOWN_PATH" $option $mown $ccown)
+                                if [ "$result" != "Y" ]; then
+                                        echo "Ownership of $MFILE not comapatible with CC 3. Commit cancelled."
+                                        reverse_meta_exit
+                                fi
+                    else
+                            option=1
+                                result=$("$CHECKOWN_PATH" $option $mown)
+                                if [ "$result" = 'UMB' ]; then
+                                    echo "Ownership of $MFILE not comapatible with CC 4. Commit cancelled."
+                                    reverse_meta_exit
+                                fi
+                    fi
+                fi
+        else
+            echo "Metadata doesn't exist for module $MFILE. Commit cancelled."
+	    reverse_meta_exit
+        fi
+done
+
+                reverse_meta_exit
+        fi
+done
+

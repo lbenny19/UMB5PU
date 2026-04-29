@@ -1,0 +1,199 @@
+#!/u/y01146/miniconda/envs/sandbox/bin/bash
+
+REPO_PATH=$(git rev-parse --show-toplevel)
+REPO_PATH=${REPO_PATH::-5}
+SITE_FILE="$REPO_PATH/validation/site_cntl"
+META_FILE="$REPO_PATH/metadata"
+
+
+read_site_cntl()  {
+
+echo "site file: "$SITE_FILE""
+echo "repopath: "$REPO_PATH""
+if [ -f "$SITE_FILE" ]; then
+    echo "site exist"
+else
+    echo "Site control file doesn't exist. Push rejected."
+    exit 1
+fi
+
+val_to_own=$(awk -F ':' -v val="VAL-CC-TO-APPL" '$1 == val {print substr($2, 1)}' $SITE_FILE)
+no_own_change=$(awk -F ':' -v val="PROHIBIT-OWNER-CHG" '$1 == val {print substr($2, 1)}' $SITE_FILE)
+}
+
+Filename_check()   {
+    file_noext="${MFILE%.*}"
+    if [ "${#file_noext}" -gt 8 ]; then
+        echo "Filename '$MFILE' is longer than 8 characters. Push rejected."
+                exit 1
+    fi
+
+    echo ""
+    if [[ $file_noext =~ ^[a-zA-Z0-9$#@]+$ ]]; then
+        echo "Filename '$MFILE' contains only valid characters."
+    else
+        echo "Filename '$MFILE' is invalid. Module Name should can contain only Alphabet Letters, Numbers, or National Characters @#$ only. Push rejected."
+                exit 1
+    fi
+
+    echo ""
+    if [[ $file_noext =~ ^[a-zA-Z] ]]; then
+        echo "Filename '$MFILE' starts with an alphabet."
+    else
+        echo "Filename '$MFILE' is invalid. Module Name should start with an alphabet. Push rejected."
+                exit 1
+    fi
+}
+
+Check_suffix()   {
+    file_noext="${MFILE%.*}"
+    key="$mlang:$mtype"
+	case "$key" in
+	    "ASM:PROGRAM") extn=".asm" ;;
+		"COB:PROGRAM") extn=".cbl" ;;
+		"ASM:MACRO") extn=".mac" ;;
+		"COB:MACRO") extn=".cpy" ;;
+		"COB:COPY BOOK") extn=".cpy" ;;
+		"IST:ISPF") extn=".itbl" ;;
+		IST:*) extn=".tbl" ;;
+		"ISS:ISPF") extn=".iskl" ;;
+		ISS:*) extn=".skl" ;;
+		"ISM:ISPF") extn=".imsg" ;;
+		ISM:*) extn=".msg" ;;
+		"ISP:ISPF") extn=".ipnl" ;;
+		ISP:*) extn=".pnl" ;;
+		IMS:*) extn=".ims" ;;	
+		ISR:*) extn=".rexx" ;;
+		ISC:*) extn=".clist" ;;
+		CIC:*) extn=".cics" ;;
+		*:JCL) extn=".jcl" ;;
+		"DAT:DATA") extn=".dat" ;;
+		*) extn="" ;;
+	esac
+		
+    newfile="${file_noext}$extn"
+	if [ "$MFILE" != "$newfile" ] || [ -z "$extn"]; then
+		echo "File extension for $file_noext incorrect."
+		echo "Expected: $newfile  Found: $MFILE" 
+		echo "Push rejected."
+		exit 1
+	fi
+}
+
+while read oldrev newrev refname; do
+    commits=$(git rev-list $oldrev..$newrev)
+
+    for commit in $commits; do
+        echo "Checking commit $commit..."
+        COMMIT_MSG_CC=$(git log -1 --pretty=%B $commit | cut -c2-11)
+        echo "COM_CC:" $COMMIT_MSG_CC
+        COMMIT_MSG_CC=$(echo "$COMMIT_MSG_CC" | sed 's/^0*//')
+        CHECKOWN_PATH="$REPO_PATH/.git/hooks/owner_check"
+
+        CCNO=$(cat "$COMMIT_MSG_FILE" | cut -c1-11)
+        export STEPLIB=PRD.Y01137.ISPF.ISPLLIB
+        val_to_own=''
+        no_own_change=''
+
+        echo "COMMIT_MSG_CC: " $COMMIT_MSG_CC
+        if ! echo "$COMMIT_MSG_CC" | grep -qE '^[0-9]+$'; then
+            echo "Invalid commit message"
+            exit 1
+        fi
+
+        RES=$(tsocmd exec "'PRD.Y01137.REXXLIB(CCSTEXT)'" "'$COMMIT_MSG_CC'")
+        read rcode stat ccown desc <<< "$RES"
+        echo "RES:" $RES
+        echo "rcode:" $rcode
+        echo "stat:" $stat
+        echo "ccown:" $ccown
+        if [ "$stat" = 'C' ] ; then
+                echo "$CCNO has already been closed. Push rejected."
+                exit 1
+        fi
+        if [ "$rcode" = 4 ] ; then
+                echo "Could not get change control details. Push rejected."
+                exit 1
+        fi
+        if [ "$CCNO" = 'C0000008262' ] ; then
+                ccown='==='
+        fi
+        echo "ccown:" $ccown
+        read_site_cntl
+	    metadata_content=$(git show "$commit:metadata")
+        echo "Metadata c: $metadata_content"
+
+        Mfiles=$(git diff-tree --no-commit-id --name-status -r "$commit" | \
+               grep -v '^validation/' | grep -v '^.git*' | grep -v '^metadata' )   
+        echo "m: "$Mfiles" "
+        if [ -z "$Mfiles" ]; then
+            exit 0
+        fi
+                 #for MOD_FILE in $Mfiles; do
+		 while IFS=$'\t' read -r M_MODE M_FILE; do
+         #    M_MODE=$(echo "$MOD_FILE" | awk -F' ' '{print $1}')
+         #    M_FILE=$(echo "$MOD_FILE" | awk -F' ' '{print $2}')     
+	        MFILE=$(basename "$M_FILE")
+	        echo "mfile: "$MFILE" "
+			Filename_check
+            mod_exist=$(echo "$metadata_content" | awk -F ';;' -v val="$MFILE" '$1 == val ')
+            echo "mod_exist : "$mod_exist" " 
+            if [  -n "$mod_exist" ]; then
+                pro_type=$(echo "$metadata_content" | awk -F ';;' -v val="$MFILE" '$1 == val {print substr($2, 1)}')
+		        if [[ ("$M_MODE" = "A" || "$M_MODE" = "M" ) &&  "$pro_type" = "DELETED" ]]; then
+                    echo "Modified or Added file $MFILE is deleted as per metadata file. Push rejected."
+                    exit 1
+                fi
+                if [ "$M_MODE" = "D" ] && [ "$pro_type" != "DELETED" ]; then
+                    echo "Deleted file $MFILE is not deleted as per metadata file. Push rejected."
+                    exit 1
+                fi
+                mown=$(echo "$metadata_content" | awk -F ';;' -v val="$MFILE" '$1 == val {print substr($6, 1)}' )
+				mtype=$(echo "$metadata_content" | awk -F ';;' -v val="$MFILE" '$1 == val {print substr($3, 1)}' )
+				mlang=$(echo "$metadata_content" | awk -F ';;' -v val="$MFILE" '$1 == val {print substr($4, 1)}' )
+                echo "mown:" $mown
+		echo "mtype: $mtype"
+		echo "mlang: $mlang"
+                echo "val:" $val_to_own
+                if [ "$val_to_own" = 'N' ]; then
+                    option=2
+		    echo "ccown: $ccown"
+		    
+                    result=$("$CHECKOWN_PATH" $option $mown $ccown)
+                    echo "result: $result"
+                    if [ "$result" != "Y" ]; then
+                        echo "Ownership of $MFILE not comapatible with CC. Push rejected."
+                        exit 1
+                    fi
+                fi
+                if [ "$val_to_own" = 'Y' ]; then
+                    if [ "$ccown" != "$mown" ]; then
+                        echo "Ownership of $MFILE not comapatible with CC. Push rejected."
+                        exit 1
+                    fi
+                fi
+                if [ "$val_to_own" = 'X' ]; then
+                    if [ "$ccown" != '===' ]; then
+                        option=2
+                        result=$("$CHECKOWN_PATH" $option $mown $ccown)
+                        if [ "$result" != "Y" ]; then
+                            echo "Ownership of $MFILE not comapatible with CC. Push rejected."
+                            exit 1
+                        fi
+                    else
+                        option=1
+                        result=$("$CHECKOWN_PATH" $option $mown)
+                        if [ "$result" = 'UMB' ]; then
+                            echo "Ownership of $MFILE not comapatible with CC. Push rejected."
+                            exit 1
+                        fi
+                    fi
+                fi
+                Check_suffix
+            else
+                echo "Metadata doesn't exist for module $MFILE. Push rejected."
+                exit 1
+            fi
+         done <<< "$Mfiles"
+    done
+done

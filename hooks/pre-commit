@@ -1,0 +1,464 @@
+#!/u/y01146/miniconda/envs/sandbox/bin/bash
+
+if [ $FROM_ISPF = 1 ];then
+    exit 0
+fi
+
+
+#To make script interactive
+exec < /dev/tty
+
+AFILE=''
+ADIR=''
+REPO_PATH=$(git rev-parse --show-toplevel)
+METAFILE="$REPO_PATH/metadata"
+AUXMETA="$REPO_PATH/metadata_to_be_added.aux"
+VAL_DIR="$REPO_PATH/validation"
+type=''
+end_type=''
+lang=''
+owner=''
+desc=''
+new=''
+done_metadata=(" ")
+tempfile="$REPO_PATH/commit-logs/precommit.log"
+rm $tempfile > /dev/null 2>&1
+
+#To display the metadata values entered by user
+Display_meta()   {
+        if [ "$new" = "N" ]; then
+            end_type=$(awk -F ';;' -v val="$AFILE" '$1 == val {print substr($2, 1)}'  $METAFILE)
+            type=$(awk -F ';;' -v val="$AFILE" '$1 == val {print substr($3, 1)}'  $METAFILE)
+            lang=$(awk -F ';;' -v val="$AFILE" '$1 == val {print substr($4, 1)}'  $METAFILE)
+            desc=$(awk -F ';;' -v val="$AFILE" '$1 == val {print substr($5, 1)}'  $METAFILE)
+            owner=$(awk -F ';;' -v val="$AFILE" '$1 == val {print substr($6, 1)}'  $METAFILE)
+        fi
+        echo "Endevor type : '$end_type'"
+        echo "Type : '$type'"
+        echo "Language : '$lang'"
+        echo "Description : '$desc'"
+        echo "Owner : '$owner'"
+}
+
+Filename_check()   {
+    #Checking if filename is 8 chars or less
+    file_noext="${AFILE%.*}"      #Removing file extension
+    if [ "${#file_noext}" -gt 8 ]; then
+        echo "Filename '$AFILE' is longer than 8 characters. Please rename and try again."
+                exit 1
+    fi
+
+    echo ""
+        #Checking if filename starts with an alphabet
+    if [[ $file_noext =~ ^[a-zA-Z0-9$#@]+$ ]]; then
+        :
+    else
+        echo "Filename '$AFILE' is invalid. Module Name should can contain only Alphabet Letters, Numbers, or National Characters @#$ only. Please rename and try again."
+                exit 1
+    fi
+
+    echo ""
+        #Checking if filename starts with an alphabet
+    if [[ $file_noext =~ ^[a-zA-Z] ]]; then
+        :
+    else
+        echo "Filename '$AFILE' is invalid. Module Name should start with an alphabet. Please rename and try again."
+                exit 1
+    fi
+}
+
+Check_suffix()   {
+    file_noext="${AFILE%.*}"          #Removing file extension
+    key="$lang:$type"
+        case "$key" in
+            "ASM:PROGRAM") extn=".asm" ;;
+                "COB:PROGRAM") extn=".cbl" ;;
+                "ASM:MACRO") extn=".mac" ;;
+                "COB:MACRO") extn=".cpy" ;;
+                "COB:COPY BOOK") extn=".cpy" ;;
+                "IST:ISPF") extn=".itbl" ;;
+                IST:*) extn=".tbl" ;;
+                "ISS:ISPF") extn=".iskl" ;;
+                ISS:*) extn=".skl" ;;
+                "ISM:ISPF") extn=".imsg" ;;
+                ISM:*) extn=".msg" ;;
+                "ISP:ISPF") extn=".ipnl" ;;
+                ISP:*) extn=".pnl" ;;
+                IMS:*) extn=".ims" ;;
+                ISR:*) extn=".rexx" ;;
+                ISC:*) extn=".clist" ;;
+                CIC:*) extn=".cics" ;;
+                *:JCL) extn=".jcl" ;;
+                "DAT:DATA") extn=".dat" ;;
+                *) extn="" ;;
+        esac
+
+    newfile="${file_noext}$extn"
+        if [ "$AFILE" != "$newfile" ]; then
+            mv "${ADIR}/${AFILE}" "${ADIR}/${newfile}"
+                git rm --cached "${ADIR}/${AFILE}" > /dev/null
+                git add "${ADIR}/${newfile}"
+            if [ "$AFILE" != "$file_noext" ];then
+                echo "File extension for $file_noext incorrect. $AFILE corrected to $newfile" >> "$tempfile"
+                fi
+        AFILE="$newfile"
+        fi
+}
+
+Read_type()  {
+    echo ""
+    read -p "Enter the type: " stype
+    #Check if type entered exists in type_list
+    rt=$( awk -v val="$stype" '$0 == val'   "$VAL_DIR/type_list")
+    if [ -n "$rt" ]; then
+        :
+    else
+        echo "Type is not valid!"
+        echo "Retype to continue or press Ctrl+C to cancel the commit."
+        Read_type
+        return 0
+    fi
+        #Convert the type abbreviation to full form
+    case "$stype" in
+        P) type="PROGRAM";;
+        C) type="COPY BOOK";;
+        M) type="MACRO";;
+        J) type="JCL";;
+        T) type="TABLE";;
+        D) type="DATA";;
+        S) type="SUBROUTINE";;
+        I) type="ISPF";;
+        *) type="Invalid";;
+    esac
+}
+
+Read_lang()  {
+    echo ""
+    read -p "Enter Language: " lang
+        #Check if lang entered exists in lang_list
+    rl=$(awk -v val="$lang" '$0 == val'  $VAL_DIR/lang_list)
+    if [ -n "$rl" ]; then
+        :
+    else
+        echo "Language is not valid!"
+        echo "Retype to continue or press Ctrl+C to cancel the commit."
+        Read_lang
+        return 0
+    fi
+}
+
+Read_endv_type()  {
+    echo ""
+    read -p "Enter Processor type of the module: " end_type
+        #Check if processor type entered exists in endv_type_list
+    re=$(awk -F ';' -v val="$end_type" '$1 == val '  "$VAL_DIR/endv_type_list")
+    if [ -n "$re" ]; then
+        :
+    else
+        echo "Processor type is not valid!"
+        echo "Retype to continue or press Ctrl+C to cancel the commit."
+        Read_endv_type
+        return 0
+    fi
+}
+
+Read_owner()  {
+    echo ""
+    read -p "Enter owner of the module: " owner
+        #Check if owner entered exists in owner_list
+    ro=$(awk -F ':' -v val="$owner" '$2 == val '  "$VAL_DIR/owner_list")
+    if [ -n "$ro" ]; then
+        :
+    else
+        echo "Owner is not valid!"
+        echo "Retype to continue or press Ctrl+C to cancel the commit."
+        Read_owner
+        return 0
+    fi
+}
+
+Read_desc()  {
+    echo ""
+    read -p "Enter description of the module: " desc
+        #Check if desc not longer than 30 chars
+    if [ ${#desc} -gt 30 ]; then
+        echo "Description should not be longer than 30 characters!"
+        echo "Retype to continue or press Ctrl+C to cancel the commit."
+        Read_desc
+        return 0
+    fi
+}
+
+#Process newly added modules
+Process_added_modules()  {
+
+#Check contents of metadata_to_be_added.aux file
+    if [ ! -f "$AUXMETA" ]; then
+        echo "Auxillary metadata file not found" >> "$tempfile"
+    fi
+
+    tailrec=$(tail -n +2 "$AUXMETA")
+    if [ -n "$tailrec" ]; then
+            {
+        read -r header      #skip header
+                #Loop through Auxmeta entries after the header
+        while IFS=',' read -r addfile aproc atype alang adesc aown; do
+            Afiles=$(git diff --cached --name-only --diff-filter=A | grep -v '^.git*' | grep -v '^hooks/'  | grep -v '^changed_metadata' )
+            found='N'
+                        #Check if the file is actually newly added
+            for A_FILE in $Afiles;do
+                AFILE=$(basename "$A_FILE")
+                ADIR=$(dirname "$A_FILE")
+                if [ "$AFILE" = "$addfile" ]; then
+                    found='Y'
+                fi
+            done
+            if [[ "$found" == "N" ]]; then
+                echo "No new files named $addfile found. Not added to metadata file." >> "$tempfile"
+                done_metadata+=("$addfile")
+            fi
+            AFILE=$addfile
+
+                    #Check file name constraints
+            Filename_check
+
+                        #Check if processor type entered exists in endv_type_list
+            ae=$(awk -F ';' -v val="$aproc" '$1 == val '  "$VAL_DIR/endv_type_list")
+            if [ -z "$ae" ]; then
+                        echo "Invalid processor type specified for "$addfile" in aux metadata file. Not added to metadata file." >>"$tempfile"
+                                continue
+                        fi
+
+                        #Check if type entered exists in type_list
+            at=$( awk -v val="$atype" '$0 == val'   "$VAL_DIR/type_list")
+            if [ -z "$at" ]; then
+                        echo "Invalid type specified for "$addfile" in aux metadata file. Not added to metadata file." >>"$tempfile"
+                                continue
+                        fi
+                        case "$atype" in
+                P) type="PROGRAM";;
+                    C) type="COPY BOOK";;
+                    M) type="MACRO";;
+                    J) type="JCL";;
+                    T) type="TABLE";;
+                    D) type="DATA";;
+                    S) type="SUBROUTINE";;
+                    I) type="ISPF";;
+                *) type="Invalid";;
+            esac
+
+                        #Check if lang entered exists in lang_list
+            al=$(awk -v val="$alang" '$0 == val'  "$VAL_DIR/lang_list")
+            if [ -z "$al" ]; then
+                echo "Invalid language specified for "$addfile" in aux metadata file. Not added to metadata file." >>"$tempfile"
+                continue
+            fi
+
+                        #Check if owner entered exists in owner_list
+            ao=$(awk -F ':' -v val="$aown" '$2 == val '  "$VAL_DIR/owner_list")
+            if [ -z "$ao" ]; then
+                        echo "Invalid owner specified for "$addfile" in aux metadata file. Not added to metadata file." >>"$tempfile"
+                                continue
+            fi
+
+            #Check if desc not longer than 30 chars
+            if [ ${#adesc} -gt 30 ]; then
+                echo "Description for "$addfile" longer than 30 characters! Not added to metadata file." >>"$tempfile"
+                continue
+            fi
+
+            userid=$(whoami)
+            tstamp=$(date +"%Y-%m-%d_%H:%M:%S")
+
+            lang=$alang
+            Check_suffix
+            addfile=$AFILE
+
+                        edit='N'
+            mod_exist=$(awk -F ';;' -v val="$addfile" '$1 == val '  $METAFILE)
+            if [  -n "$mod_exist" ]; then
+                            edit='Y'
+            fi
+
+            if [ "$edit" = "Y" ]; then
+                awk -v val="$addfile" -v et="$aproc" -v ty="$type" -v la="$alang" -v de="$adesc" -v ow="$aown" -v ts="$tstamp" -v us="$userid"  -F ';;' 'BEGIN {OFS=";;"} $1 == val {$2=et; $3=ty; $4=la; $5=de; $6=ow; $7=ts; $8=us} {print}' $METAFILE > temp && mv temp $METAFILE
+                    echo "Metadata edited for "$addfile"!" >>"$tempfile"
+            else
+                    echo "$addfile;;$aproc;;$type;;$alang;;$adesc;;$aown;;$tstamp;;$userid" >> $METAFILE
+                    echo "Metadata written for "$addfile"!" >>"$tempfile"
+            fi
+            done_metadata+=("$addfile")
+        done
+       } < "$AUXMETA"
+        else
+        echo "No new file entries added in auxillary metadata file." >> "$tempfile"
+        fi
+
+
+        Afiles=$(git diff --cached --name-only --diff-filter=A | grep -v '^validation/'| grep -v '^.git*' | grep -v '^hooks/' )
+
+
+
+if [ -z "$Afiles" ]; then
+    echo "No new files."
+        return 0
+fi
+
+    for A_FILE in $Afiles;do
+        AFILE=$(basename "$A_FILE")
+        ADIR=$(dirname "$A_FILE")
+        done_metadata+=(" ")
+
+                #Check and ignore if module already processed in auxmeta file section
+        if [[ "${done_metadata[*]}" == *" $AFILE "* ]]; then
+        continue
+    fi
+    new='Y'
+    Filename_check
+
+        mod_exist=$(awk -F ';;' -v val="$AFILE" '$1 == val '  $METAFILE)
+        if [  -n "$mod_exist" ]; then
+            edit='Y'
+            curr=$(awk -F ';;' -v val="$AFILE" '$1 == val {print substr($2, 1)}'  $METAFILE)
+                        #If module exists in metadata file and is not deleted, allow edit to metadata
+            if [ "$curr" != "DELETED" ]; then
+                echo ""
+                echo "Metadata already exist in the file for the newly added module '$AFILE'"
+                new='N'
+                echo ""
+                echo "-------------------------------------------------------------------"
+                Display_meta
+                echo "-------------------------------------------------------------------"
+                echo ""
+                read -p "Enter Y to edit the metadata or N to keep the current metadata: " ch1
+                if [ "$ch1" == "N" ]; then
+                    continue
+                fi
+            else
+                echo "New module added: $AFILE. Please enter file metadata."
+            fi
+        else
+            edit='N'
+            echo "New module added: $AFILE. Please enter file metadata."
+        fi
+
+
+        Read_type
+        Read_lang
+        Read_endv_type
+        Read_owner
+        Read_desc
+        userid=$(whoami)
+        tstamp=$(date +"%Y-%m-%d_%H:%M:%S")
+
+        Check_suffix
+
+            #Till user confirms the metadata entry, keep displaying it
+        conf='N'
+        until [ $conf = "Y" ];do
+            echo ""
+            echo "-------------------------------------------------------------------"
+            echo "               Metadata entered for $AFILE                              "
+            echo "-------------------------------------------------------------------"
+            new='Y'
+            Display_meta
+            echo "-------------------------------------------------------------------"
+            echo ""
+            read -p "Please confirm if this is correct (yes/no): " conf
+        case "$conf" in
+            [Yy]* ) break ;;
+            [Nn]* )
+                    echo ""
+                    echo "Which metadata would you like to edit?"
+                    echo "1. Type"
+                    echo "2. Language"
+                    echo "3. Endevor-Type"
+                    echo "4. Owner"
+                    echo "5. Description"
+                    read -p "Enter option :" inp
+                    case "$inp" in
+                        1|Type) Read_type ;;
+                        2|Language) Read_lang ;;
+                        3|Processor-Type) Read_endv_type ;;
+                        4|Owner) Read_owner ;;
+                        5|Description) Read_desc ;;
+                         * ) echo "Invalid choice" ;;
+                    esac
+                                                        ;;
+            * ) echo "Please enter yes or no." ;;
+        esac
+    done
+    echo ""
+    if [ "$edit" = "Y" ]; then
+awk -v val="$AFILE" -v et="$end_type" -v ty="$type" -v la="$lang" -v de="$desc" -v ow="$owner" -v ts="$tstamp" -v us="$userid"  -F ';;' 'BEGIN {OFS=";;"} $1 == val {$2=et; $3=ty; $4=la; $5=de; $6=ow; $7=ts; $8=us} {print}' $METAFILE > temp && mv temp $METAFILE
+        echo "Metadata edited!"
+    else
+        echo "$AFILE;;$end_type;;$type;;$lang;;$desc;;$owner;;$tstamp;;$userid" >> $METAFILE
+        echo "Metadata written!"
+    fi
+
+done
+}
+
+Process_modified_modules()  {
+        Mfiles=$(git diff --cached --name-only --diff-filter=M | grep -v '^validation/'| grep -v '^.git*' | grep -v '^hooks/' )
+
+if [ -z "$Mfiles" ]; then
+    echo "No modified files."
+        return 0
+fi
+
+#For each modified module, checks if it exists in metadata file. If yes, userid and
+#timestamp are updated. If not found, throw error.
+for M_FILE in $Mfiles;do
+    MFILE=$(basename "$M_FILE")
+    echo "Modified file: $MFILE"
+        userid=$(whoami)
+        tstamp=$(date +"%Y-%m-%d_%H:%M:%S")
+    mod_exist=$(awk -F ';;' -v val="$MFILE" '$1 == val '  $METAFILE)
+    if [  -n "$mod_exist" ]; then
+        awk -v ts="$tstamp" -v us="$userid" -v val="$MFILE" -F ';;' 'BEGIN {OFS=";;"} $1 == val {$7=ts; $8=us} 1' $METAFILE > temp && mv temp metadata
+                echo "Metadata updated"
+        else
+            echo "Metadata not found"
+            exit 1
+        fi
+done
+}
+
+Process_deleted_modules()  {
+        Dfiles=$(git diff --cached --name-only --diff-filter=D | grep -v '^validation/'| grep -v '^.git*' | grep -v '^hooks/' )
+
+if [ -z "$Dfiles" ]; then
+    echo "No deleted files."
+        return 0
+fi
+
+for D_FILE in $Dfiles;do
+    DFILE=$(basename "$D_FILE")
+    userid=$(whoami)
+    tstamp=$(date +"%Y-%m-%d_%H:%M:%S")
+    echo ""
+    echo "Deleted file: $DFILE"
+    mod_exist=$(awk -F ';;' -v val="$DFILE" '$1 == val '  $METAFILE)
+    if [  -n "$mod_exist" ]; then
+        awk -v ts="$tstamp" -v us="$userid" -v et="DELETED" -v val="$DFILE" -F ';;' 'BEGIN {OFS=";;"} $1 == val {$2=et; $7=ts; $8=us} 1' $METAFILE > temp && mv temp $METAFILE
+        echo "Metadata set to DELETED"
+    else
+        echo "Metadata not found"
+        exit 1
+    fi
+
+done
+}
+
+git restore --staged $METAFILE
+git restore $METAFILE
+
+Process_added_modules
+Process_modified_modules
+Process_deleted_modules
+
+
+git add $METAFILE
+
