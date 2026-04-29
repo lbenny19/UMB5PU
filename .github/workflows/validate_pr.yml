@@ -33,7 +33,5 @@ jobs:
         env:
           MF_PASSWORD: ${{ secrets.ZOSMF_PASSWORD }}
         run: |
-		
           chmod +x ./hooks/validate_pr.sh ./hooks/owner_check
-          
           ./hooks/validate_pr.sh ${{ github.event.pull_request.base.sha }} ${{ github.event.pull_request.head.sha }} ${{ env.CC_NUMBER }}		  
