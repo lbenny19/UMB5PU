@@ -14,12 +14,12 @@ jobs:
           fetch-depth: 0 # Required so 'git diff' can see both branches
 
       - name: Extract CC Number from Commit Message
-        shell: 'C:\Program Files\Git\bin\bash.exe'
+        shell: bash
         run: |
           COMMIT_MSG=$(git log -1 --pretty=%B ${{ github.event.pull_request.head.sha }})
-          
+          echo "COMMIT_MSG: $COMMIT_MSG"
           CC_NO=$(echo "$COMMIT_MSG" | cut -c2-11 | sed 's/^0*//' | tr -d ' ')
-          
+          echo "CC_NO: $CC_NO"
           if ! echo "$CC_NO" | grep -qE '^[0-9]+$'; then
              echo "Error: The commit message must start with a numeric CC Number."
              echo "Found: $COMMIT_MSG"
@@ -29,7 +29,7 @@ jobs:
           echo "CC_NUMBER=$CC_NO" >> $GITHUB_ENV
 
       - name: Run Validation Script
-        shell: 'C:\Program Files\Git\bin\bash.exe'
+        shell: bash
         env:
           MF_PASSWORD: ${{ secrets.ZOSMF_PASSWORD }}
         run: |
