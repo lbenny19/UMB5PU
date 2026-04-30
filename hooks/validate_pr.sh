@@ -87,10 +87,34 @@ if ! echo "$COMMIT_MSG_CC" | grep -qE '^[0-9]+$'; then
     exit 1
 fi
 
+cat << EOF > zowe.config.json
+{
+    "\$schema": "https://zowe.github.io/docs-site/latest/schemas/zowe.config.json",
+    "profiles": {
+        "zosmf": {
+            "type": "zosmf",
+            "properties": {
+                "host": "hog-mfrm-osa-vir.fsg.aus.csc.co",
+                "port": 10443,
+                "user": "Y01137",
+                "rejectUnauthorized": false
+            }
+        }
+    },
+    "defaults": {
+        "zosmf": "zosmf"
+    }
+}
+EOF
+
 echo "Executing REXX check via Zowe..."
 
-RES=$(zowe zos-uss issue command "./cext.sh $CCNO; exit" --host="hog-mfrm-osa-vir.fsg.aus.csc.com" --port=10443 --user="Y01137" --password="$MF_PASSWORD" --reject-unauthorized=false | sed -n '3p')
+RES=$(zowe zos-uss issue command "./cext.sh $CCNO; exit" --password="$MF_PASSWORD" | sed -n '3p')
 echo "RES: $RES"
+
+rm zowe.config.json
+echo "Temporary configuration removed."
+
 read rcode stat ccown desc <<< "$RES"
 
 if [ "$stat" = 'C' ] ; then
