@@ -1,10 +1,11 @@
-#!/u/y01146/miniconda/envs/sandbox/bin/bash
+#!/usr/bin/bash
 
+echo "in owner_check"
 opt=$1
 own1=$2
 own2=$3
 REPO_PATH=$(git rev-parse --show-toplevel)
-OWN_FILE="/u/y01137/test5/validation/owner_list"
+OWN_FILE="./validation/owner_list"
 
 if ls $OWN_FILE 1> /dev/null 2>&1; then
     :
