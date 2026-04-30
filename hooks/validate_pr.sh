@@ -73,7 +73,7 @@ Check_suffix()   {
 	esac
 		
     newfile="${file_noext}$extn"
-	if [ "$MFILE" != "$newfile" ] || [ -z "$extn"]; then
+	if [ "$MFILE" != "$newfile" ] || [ -z "$extn" ]; then
 		echo "File extension for $file_noext incorrect."
 		echo "Expected: $newfile  Found: $MFILE" 
 		echo "Push rejected."
