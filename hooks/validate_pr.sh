@@ -109,7 +109,7 @@ EOF
 
 echo "Executing REXX check via Zowe..."
 
-RES=$(zowe zos-uss issue command "./cext.sh $CCNO; exit" --password="$MF_PASSWORD" )
+RES=$(zowe zos-uss issue command "./cext.sh $COMMIT_MSG_CC; exit" --password="$MF_PASSWORD" | sed -n '3p')
 echo "RES: $RES"
 
 rm zowe.config.json
