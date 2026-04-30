@@ -89,13 +89,7 @@ fi
 
 echo "Executing REXX check via Zowe..."
 
-RES=$(zowe zos-uss issue command "./cext.sh $CCNO; exit" \
---host="hog-mfrm-osa-vir.fsg.aus.csc.com" \
-  --port="10443" \
-  --user="Y01137" \
-  --password="$MF_PASSWORD" \
-  --reject-unauthorized=false \
-  | sed -n '3p')
+RES=$(zowe zos-uss issue command "./cext.sh $CCNO; exit" --host="hog-mfrm-osa-vir.fsg.aus.csc.com" --port=10443 --user="Y01137" --password="$MF_PASSWORD" --reject-unauthorized=false | sed -n '3p')
 echo "RES: $RES"
 read rcode stat ccown desc <<< "$RES"
 
