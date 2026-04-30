@@ -129,7 +129,7 @@ fi
 read_site_cntl
 metadata_content=$(cat "$META_FILE")
 
-Mfiles=$(git diff --name-status "$BASE_SHA" "$HEAD_SHA" | /
+Mfiles=$(git diff --name-status "$BASE_SHA" "$HEAD_SHA" | \
          grep -v '^validation/' | grep -v '^hooks/' | grep -v '^.github/' | grep -v '^.git*' | grep -v '^metadata' )   
 
 echo "m: $Mfiles "
