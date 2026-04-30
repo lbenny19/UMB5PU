@@ -1,6 +1,5 @@
 #!/usr/bin/bash
 
-echo "in owner_check"
 opt=$1
 own1=$2
 own2=$3
