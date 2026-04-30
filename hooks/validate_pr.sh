@@ -130,7 +130,7 @@ read_site_cntl
 metadata_content=$(cat "$META_FILE")
 
 Mfiles=$(git diff --name-status "$BASE_SHA" "$HEAD_SHA" | \
-         grep -v '^validation/' | grep -v '^hooks/' | grep -v '^.github/' | grep -v '^.git*' | grep -v '^metadata' )   
+         grep -v '[[:space:]]validation/' | grep -v '[[:space:]]hooks/' | grep -v '[[:space:]]\.git*' | grep -v '[[:space:]]metadata' )   
 
 echo "m: $Mfiles "
 if [ -z "$Mfiles" ]; then
