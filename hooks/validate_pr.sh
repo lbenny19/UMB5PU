@@ -89,7 +89,7 @@ fi
 
 echo "Executing REXX check via Zowe..."
 
-RES=$(zowe zos-uss issue command "./cext.sh $CCNO; exit" --password "$MF_PASSWORD" | sed -n '3p')
+RES=$(zowe zos-uss issue command "./cext.sh $CCNO; exit" --user "Y01137" --password "$MF_PASSWORD" | sed -n '3p')
 echo "RES: $RES"
 read rcode stat ccown desc <<< "$RES"
 
