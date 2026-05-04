@@ -163,7 +163,7 @@ while IFS=$'/t' read -r M_MODE M_FILE; do
         fi
         
         mown=$(echo "$metadata_content" | awk -F ';;' -v val="$MFILE" '$1 == val {print substr($6, 1)}' )
-		mptype=$(echo "$metadata_content" | awk -F ';;' -v val="$MFILE" '$1 == val {print substr($3, 1)}' )
+		mptype=$(echo "$metadata_content" | awk -F ';;' -v val="$MFILE" '$1 == val {print substr($2, 1)}' )
         mtype=$(echo "$metadata_content" | awk -F ';;' -v val="$MFILE" '$1 == val {print substr($3, 1)}' )
         mlang=$(echo "$metadata_content" | awk -F ';;' -v val="$MFILE" '$1 == val {print substr($4, 1)}' )
 
