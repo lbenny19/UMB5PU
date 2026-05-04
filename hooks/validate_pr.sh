@@ -178,11 +178,19 @@ while IFS=$'/t' read -r M_MODE M_FILE; do
             echo "Language is not valid for $MFILE" 
 		    exit 1
 		fi		
+		
 		chk_ptype=$(awk -F ';' -v val="$mptype" '$1 == val '  "$VAL_DIR/endv_type_list")
         if [ -z "$chk_ptype" ]; then
             echo "Processor type is not valid for $MFILE" 
 		    exit 1
 		fi
+
+		TYPE_LIST="|PROGRAM|COPY BOOK|MACRO|JCL|TABLE|DATA|SUBROUTINE|ISPF|"
+
+        if [[ ! "$TYPE_LIST" =~ "|$mtype|" ]]; then
+            echo "Type is not valid for $MFILE"
+            exit 1
+        fi
 		
         echo "mown: $mown"
         echo "val: $val_to_own"
