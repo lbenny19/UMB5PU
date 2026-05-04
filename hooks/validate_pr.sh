@@ -204,7 +204,7 @@ while IFS=$'/t' read -r M_MODE M_FILE; do
         fi
         Check_suffix
     else
-        echo "Metadata doesn't exist for module $MFILE. Push rejected."
+        echo "Metadata entry not updated for module $MFILE. Push rejected."
         exit 1
     fi
 done <<< "$Mfiles"
