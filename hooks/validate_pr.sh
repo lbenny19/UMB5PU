@@ -131,7 +131,8 @@ metadata_content=$(cat "$META_FILE")
 
 Mfiles=$(git diff --name-status "$BASE_SHA" "$HEAD_SHA" | \
          grep -v '[[:space:]]validation/' | grep -v '[[:space:]]hooks/' | grep -v '[[:space:]]\.git*' | grep -v '[[:space:]]metadata' )   
-META_CHANGES=$(git diff "$BASE_SHA" "$HEAD_SHA" -- "$META_FILE" | grep '^\+')
+META_CHANGES=$(git diff "$BASE_SHA" "$HEAD_SHA" -- "$META_FILE" | grep '^\+' | sed 's/^+//' | \
+         grep -v '[[:space:]]validation/' | grep -v '[[:space:]]hooks/' | grep -v '[[:space:]]\.git*' | grep -v '[[:space:]]metadata' )
 echo $META_CHANGES
 echo "m: $Mfiles "
 if [ -z "$Mfiles" ]; then
