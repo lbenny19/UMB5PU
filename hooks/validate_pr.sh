@@ -8,6 +8,7 @@ COMMIT_MSG_CC=$3
 SITE_FILE="./validation/site_cntl"
 META_FILE="./metadata"
 CHECKOWN_PATH="./hooks/owner_check"
+VAL_DIR="./validation"
 
 read_site_cntl()  {
     echo "site file: "$SITE_FILE""
@@ -162,13 +163,30 @@ while IFS=$'/t' read -r M_MODE M_FILE; do
         fi
         
         mown=$(echo "$metadata_content" | awk -F ';;' -v val="$MFILE" '$1 == val {print substr($6, 1)}' )
+		mptype=$(echo "$metadata_content" | awk -F ';;' -v val="$MFILE" '$1 == val {print substr($3, 1)}' )
         mtype=$(echo "$metadata_content" | awk -F ';;' -v val="$MFILE" '$1 == val {print substr($3, 1)}' )
         mlang=$(echo "$metadata_content" | awk -F ';;' -v val="$MFILE" '$1 == val {print substr($4, 1)}' )
-        
+
+		chk_own=$(awk -F ':' -v val="$mown" '$2 == val '  "$VAL_DIR/owner_list")
+        if [ -z "$chk_own" ]; then
+            echo "Owner is not valid for $MFILE" 
+		    exit 1
+		fi
+
+		chk_lang=$(awk -v val="$mlang" '$0 == val'  "$VAL_DIR/lang_list")
+        if [ -z "$chk_lang" ]; then
+            echo "Language is not valid for $MFILE" 
+		    exit 1
+		fi		
+		chk_ptype=$(awk -F ';' -v val="$mptype" '$1 == val '  "$VAL_DIR/endv_type_list")
+        if [ -z "$chk_ptype" ]; then
+            echo "Processor type is not valid for $MFILE" 
+		    exit 1
+		fi
+		
         echo "mown: $mown"
         echo "val: $val_to_own"
         
-        # Local Ownership Logic
         if [ "$val_to_own" = 'N' ]; then
             option=2
             echo "ccown: $ccown"
