@@ -131,7 +131,7 @@ metadata_content=$(cat "$META_FILE")
 
 Mfiles=$(git diff --name-status "$BASE_SHA" "$HEAD_SHA" | \
          grep -v '[[:space:]]validation/' | grep -v '[[:space:]]hooks/' | grep -v '[[:space:]]\.git*' | grep -v '[[:space:]]metadata' )   
-
+META_CHANGES=$(git diff "$BASE_SHA" "$HEAD_SHA" -- "$META_FILE" | grep '^\+')
 echo "m: $Mfiles "
 if [ -z "$Mfiles" ]; then
     echo "No source files changed. Exiting."
@@ -143,11 +143,11 @@ while IFS=$'/t' read -r M_MODE M_FILE; do
     echo "mfile: $MFILE "
     Filename_check
 
-    mod_exist=$(echo "$metadata_content" | awk -F ';;' -v val="$MFILE" '$1 == val ')
+    mod_exist=$(echo "$META_CHANGES" | awk -F ';;' -v val="$MFILE" '$1 == val ')
     echo "mod_exist : $mod_exist " 
 
     if [  -n "$mod_exist" ]; then
-        pro_type=$(echo "$metadata_content" | awk -F ';;' -v val="$MFILE" '$1 == val {print substr($2, 1)}')
+        pro_type=$(echo "$META_CHANGES" | awk -F ';;' -v val="$MFILE" '$1 == val {print substr($2, 1)}')
         
         if [[ ("$M_MODE" = "A" || "$M_MODE" = "M" ) &&  "$pro_type" = "DELETED" ]]; then
             echo "Modified or Added file $MFILE is deleted as per metadata file. Push rejected."
