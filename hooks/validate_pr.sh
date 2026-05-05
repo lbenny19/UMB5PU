@@ -162,7 +162,7 @@ while IFS=$'/t' read -r M_MODE M_FILE; do
 		fi		
 		
 		chk_ptype=$(awk -F ';' -v val="$mptype" '$1 == val '  "$VAL_DIR/endv_type_list")
-        if [[ -z "$chk_lang" && "$mlang" != "DELETED" ]]; then
+        if [[ -z "$chk_ptype" && "$mptype" != "DELETED" ]]; then
             echo "Processor type is not valid for $MFILE" 
 		    exit 1
 		fi
