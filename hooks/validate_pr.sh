@@ -108,24 +108,6 @@ cat << EOF > zowe.config.json
 }
 EOF
 
-echo "Executing REXX check via Zowe..."
-
-RES=$(zowe zos-uss issue command "./cext.sh $COMMIT_MSG_CC; exit" --password="$MF_PASSWORD" | sed -n '3p')
-echo "RES: $RES"
-
-rm zowe.config.json
-
-read rcode stat ccown desc <<< "$RES"
-
-if [ "$stat" = 'C' ] ; then
-    echo "$COMMIT_MSG_CC has already been closed. Merge rejected."
-    exit 1
-fi
-if [ "$rcode" = 4 ] ; then
-    echo "Could not get change control details. Merge rejected."
-    exit 1
-fi
-
 read_site_cntl
 metadata_content=$(cat "$META_FILE")
 
@@ -140,6 +122,7 @@ if [ -z "$Mfiles" ]; then
     exit 0
 fi
 
+cc_check="N"
 while IFS=$'/t' read -r M_MODE M_FILE; do
     MFILE=$(basename "$M_FILE")
     echo "mfile: $MFILE "
@@ -193,7 +176,23 @@ while IFS=$'/t' read -r M_MODE M_FILE; do
 		
         echo "mown: $mown"
         echo "val: $val_to_own"
-        
+
+        if [ "$cc_check" = 'N' ]; then
+		    echo "Executing REXX check via Zowe..."
+            RES=$(zowe zos-uss issue command "./cext.sh $COMMIT_MSG_CC; exit" --password="$MF_PASSWORD" | sed -n '3p')
+            echo "RES: $RES"
+            rm zowe.config.json
+            read rcode stat ccown desc <<< "$RES"
+            cc_check="Y"
+            if [ "$stat" = 'C' ] ; then
+                echo "$COMMIT_MSG_CC has already been closed. Merge rejected."
+                exit 1
+            fi
+            if [ "$rcode" = 4 ] ; then
+                echo "Could not get change control details. Merge rejected."
+                exit 1
+            fi			
+		fi
         if [ "$val_to_own" = 'N' ]; then
             option=2
             echo "ccown: $ccown"
