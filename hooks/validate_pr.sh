@@ -15,7 +15,7 @@ read_site_cntl()  {
     if [ -f "$SITE_FILE" ]; then
         echo "site exist"
     else
-        echo "Site control file doesn't exist. Push rejected."
+        echo "Site control file doesn't exist. Merge rejected."
         exit 1
     fi
     
@@ -26,7 +26,7 @@ read_site_cntl()  {
 Filename_check()   {
     file_noext="${MFILE%.*}"
     if [ "${#file_noext}" -gt 8 ]; then
-        echo "Filename '$MFILE' is longer than 8 characters. Push rejected."
+        echo "Filename '$MFILE' is longer than 8 characters. Merge rejected."
                 exit 1
     fi
 
@@ -34,7 +34,7 @@ Filename_check()   {
     if [[ $file_noext =~ ^[a-zA-Z0-9$#@]+$ ]]; then
         echo "Filename '$MFILE' contains only valid characters."
     else
-        echo "Filename '$MFILE' is invalid. Module Name should can contain only Alphabet Letters, Numbers, or National Characters @#$ only. Push rejected."
+        echo "Filename '$MFILE' is invalid. Module Name should can contain only Alphabet Letters, Numbers, or National Characters @#$ only. Merge rejected."
                 exit 1
     fi
 
@@ -42,7 +42,7 @@ Filename_check()   {
     if [[ $file_noext =~ ^[a-zA-Z] ]]; then
         echo "Filename '$MFILE' starts with an alphabet."
     else
-        echo "Filename '$MFILE' is invalid. Module Name should start with an alphabet. Push rejected."
+        echo "Filename '$MFILE' is invalid. Module Name should start with an alphabet. Merge rejected."
                 exit 1
     fi
 }
@@ -77,7 +77,7 @@ Check_suffix()   {
 	if [ "$MFILE" != "$newfile" ] || [ -z "$extn" ]; then
 		echo "File extension for $file_noext incorrect."
 		echo "Expected: $newfile  Found: $MFILE" 
-		echo "Push rejected."
+		echo "Merge rejected."
 		exit 1
 	fi
 }
@@ -114,16 +114,15 @@ RES=$(zowe zos-uss issue command "./cext.sh $COMMIT_MSG_CC; exit" --password="$M
 echo "RES: $RES"
 
 rm zowe.config.json
-echo "Temporary configuration removed."
 
 read rcode stat ccown desc <<< "$RES"
 
 if [ "$stat" = 'C' ] ; then
-    echo "$COMMIT_MSG_CC has already been closed. Push rejected."
+    echo "$COMMIT_MSG_CC has already been closed. Merge rejected."
     exit 1
 fi
 if [ "$rcode" = 4 ] ; then
-    echo "Could not get change control details. Push rejected."
+    echo "Could not get change control details. Merge rejected."
     exit 1
 fi
 
@@ -153,12 +152,12 @@ while IFS=$'/t' read -r M_MODE M_FILE; do
         pro_type=$(echo "$META_CHANGES" | awk -F ';;' -v val="$MFILE" '$1 == val {print substr($2, 1)}')
         
         if [[ ("$M_MODE" = "A" || "$M_MODE" = "M" ) &&  "$pro_type" = "DELETED" ]]; then
-            echo "Modified or Added file $MFILE is deleted as per metadata file. Push rejected."
+            echo "Modified or Added file $MFILE is deleted as per metadata file. Merge rejected."
             exit 1
         fi
         
         if [ "$M_MODE" = "D" ] && [ "$pro_type" != "DELETED" ]; then
-            echo "Deleted file $MFILE is not deleted as per metadata file. Push rejected."
+            echo "Deleted file $MFILE is not deleted as per metadata file. Merge rejected."
             exit 1
         fi
         
@@ -180,7 +179,7 @@ while IFS=$'/t' read -r M_MODE M_FILE; do
 		fi		
 		
 		chk_ptype=$(awk -F ';' -v val="$mptype" '$1 == val '  "$VAL_DIR/endv_type_list")
-        if [ -z "$chk_ptype" ]; then
+        if [[ -z "$chk_lang" && "$mlang" != "DELETED" ]]; then
             echo "Processor type is not valid for $MFILE" 
 		    exit 1
 		fi
@@ -201,14 +200,14 @@ while IFS=$'/t' read -r M_MODE M_FILE; do
             result=$("$CHECKOWN_PATH" $option "$mown" "$ccown")
             echo "result: $result"
             if [ "$result" != "Y" ]; then
-                echo "Ownership of $MFILE not compatible with CC. Push rejected."
+                echo "Ownership of $MFILE not compatible with CC. Merge rejected."
                 exit 1
             fi
         fi
         
         if [ "$val_to_own" = 'Y' ]; then
             if [ "$ccown" != "$mown" ]; then
-                echo "Ownership of $MFILE not compatible with CC. Push rejected."
+                echo "Ownership of $MFILE not compatible with CC. Merge rejected."
                 exit 1
             fi
         fi
@@ -218,21 +217,21 @@ while IFS=$'/t' read -r M_MODE M_FILE; do
                 option=2
                 result=$("$CHECKOWN_PATH" $option "$mown" "$ccown")
                 if [ "$result" != "Y" ]; then
-                    echo "Ownership of $MFILE not compatible with CC. Push rejected."
+                    echo "Ownership of $MFILE not compatible with CC. Merge rejected."
                     exit 1
                 fi
             else
                 option=1
                 result=$("$CHECKOWN_PATH" $option "$mown")
                 if [ "$result" = 'UMB' ]; then
-                    echo "Ownership of $MFILE not compatible with CC. Push rejected."
+                    echo "Ownership of $MFILE not compatible with CC. Merge rejected."
                     exit 1
                 fi
             fi
         fi
         Check_suffix
     else
-        echo "Metadata entry not updated for module $MFILE. Push rejected."
+        echo "Metadata entry not updated for module $MFILE. Merge rejected."
         exit 1
     fi
 done <<< "$Mfiles"
