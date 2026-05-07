@@ -4,7 +4,6 @@ BASE_SHA=$1
 HEAD_SHA=$2
 COMMIT_MSG_CC=$3
 
-
 SITE_FILE="./validation/site_cntl"
 META_FILE="./metadata"
 CHECKOWN_PATH="./hooks/owner_check"
