@@ -198,6 +198,7 @@ while IFS=$'/t' read -r M_MODE M_FILE; do
         echo "mown: $mown"
         echo "val: $val_to_own"
 
+
         if [ "$cc_check" = 'N' ]; then
 		    echo "Executing REXX check via Zowe..."
             RES=$(zowe zos-uss issue command "./cext.sh $COMMIT_MSG_CC; exit" --password="$MF_PASSWORD" | sed -n '3p')
