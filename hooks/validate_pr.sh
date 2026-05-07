@@ -133,7 +133,7 @@ MFILE_CHANGES=$(git diff "$BASE_SHA" "$HEAD_SHA" -- "$META_FILE" | grep -E '^(\+
 
 if [[ -n "$MFILE_CHANGES" ]]; then
     while read -r line; do
-        mod_name=$(echo "$line" | sed 's/^[+-]//' | awk -F',' '{print $1}')
+        mod_name=$(echo "$line" | sed 's/^[+-]//' | awk -F';;' '{print $1}')
         
         if ! echo "$ALL_CHANGED_FILES" | grep -q "$mod_name"; then
             echo "Metadata entry for '$mod_name' has been modified, but no code changes were found for this module."
