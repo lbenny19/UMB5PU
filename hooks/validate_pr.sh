@@ -111,6 +111,7 @@ read_site_cntl
 metadata_content=$(cat "$META_FILE")
 
 Invalid_changes=$(git diff --name-only "$BASE_SHA" "$HEAD_SHA" | grep -E '^(hooks/|validation/)')
+echo "invalid: $Invalid_changes"
 if [[ -n "$Invalid_changes" ]]; then
     echo "Changes to hooks or validation folder not allowed"
 	exit 1
