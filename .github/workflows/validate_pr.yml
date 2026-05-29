@@ -17,6 +17,7 @@ jobs:
           fetch-depth: 0 # Required so 'git diff' can see both branches
           
       - name: Format Pull request title
+        shell: bash
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
