@@ -40,7 +40,7 @@ jobs:
         run: |
           COMMIT_MSG=$(git log -1 --pretty=%B ${{ github.event.pull_request.head.sha }})
           echo "COMMIT_MSG: $COMMIT_MSG"
-          CC_NO=$(echo "$COMMIT_MSG" | cut -c2-11 | sed 's/^0*//' | tr -d ' ')
+          CC_NO=$(echo "$COMMIT_MSG" | head -n 1 | cut -c2-11 | sed 's/^0*//' | tr -d ' ')
           echo "CC_NO: $CC_NO"
           if ! echo "$CC_NO" | grep -qE '^[0-9]+$'; then
              echo "Error: The commit message must start with a numeric CC Number."
