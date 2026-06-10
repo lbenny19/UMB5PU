@@ -10,6 +10,7 @@ CHECKOWN_PATH="./hooks/owner_check"
 VAL_DIR="./validation"
 export ZOWE_APP_SETTINGS_PROJECT_ONLY=true
 export ZOWE_CLI_HOME="$GITHUB_WORKSPACE/.zowe_home"
+export ZOWE_CLI_TELEMETRY_OPTOUT=true
 
 read_site_cntl()  {
     echo "site file: "$SITE_FILE""
