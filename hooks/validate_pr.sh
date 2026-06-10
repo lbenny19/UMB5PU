@@ -100,7 +100,7 @@ cat << EOF > zowe.config.json
         "zosmf": {
             "type": "zosmf",
             "properties": {
-                "host": "hog-mfrm-osa-vir.fsg.aus.csc.co",
+                "host": "hog-mfrm-osa-vir.fsg.aus.csc.com",
                 "port": 10443,
                 "user": "Y01137",
                 "rejectUnauthorized": false
