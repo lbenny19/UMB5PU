@@ -9,8 +9,8 @@ META_FILE="./metadata"
 CHECKOWN_PATH="./hooks/owner_check"
 VAL_DIR="./validation"
 export ZOWE_APP_SETTINGS_PROJECT_ONLY=true
-export ZOWE_CLI_HOME="$GITHUB_WORKSPACE/.zowe_home"
-export ZOWE_CLI_TELEMETRY_OPTOUT=true
+#export ZOWE_CLI_HOME="$GITHUB_WORKSPACE/.zowe_home"
+#export ZOWE_CLI_TELEMETRY_OPTOUT=true
 
 read_site_cntl()  {
     echo "site file: "$SITE_FILE""
@@ -90,7 +90,7 @@ if ! echo "$COMMIT_MSG_CC" | grep -qE '^[0-9]+$'; then
     exit 1
 fi
 
-rm -rf "$ZOWE_CLI_HOME"
+#rm -rf "$ZOWE_CLI_HOME"
 rm -rf .zowe/
 
 cat << EOF > zowe.config.json
