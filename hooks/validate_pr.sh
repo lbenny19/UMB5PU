@@ -8,6 +8,8 @@ SITE_FILE="./validation/site_cntl"
 META_FILE="./metadata"
 CHECKOWN_PATH="./hooks/owner_check"
 VAL_DIR="./validation"
+export ZOWE_APP_SETTINGS_PROJECT_ONLY=true
+export ZOWE_CLI_HOME="$GITHUB_WORKSPACE/.zowe_home"
 
 read_site_cntl()  {
     echo "site file: "$SITE_FILE""
@@ -86,6 +88,9 @@ if ! echo "$COMMIT_MSG_CC" | grep -qE '^[0-9]+$'; then
     echo "Invalid commit message: CC must be numeric"
     exit 1
 fi
+
+rm -rf "$ZOWE_CLI_HOME"
+rm -rf .zowe/
 
 cat << EOF > zowe.config.json
 {
@@ -199,8 +204,9 @@ while IFS=$'/t' read -r M_MODE M_FILE; do
         echo "val: $val_to_own"
 
         if [ "$cc_check" = 'N' ]; then
+		    echo "DEBUG: Password length is ${#MF_PASSWORD} characters."
 		    echo "Executing REXX check via Zowe..."
-            RES=$(zowe zos-uss issue command "./cext.sh $COMMIT_MSG_CC; exit" --password="$MF_PASSWORD" | sed -n '3p')
+            RES=$(zowe zos-uss issue command "./cext.sh $COMMIT_MSG_CC; exit" --password="$MF_PASSWORD" )
             echo "RES: $RES"
             rm zowe.config.json
             read rcode stat ccown desc <<< "$RES"

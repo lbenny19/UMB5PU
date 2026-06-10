@@ -7,18 +7,42 @@ on:
 jobs:
   validate-push:
     runs-on: self-hosted
+    permissions:
+      contents: read
+      pull-requests: write
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
         with:
           fetch-depth: 0 # Required so 'git diff' can see both branches
+          
+      - name: Format Pull request title
+        shell: bash
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          LAST_COMMIT_SHA=$(git log origin/${{ github.base_ref }}..HEAD --no-merges -1 --format=%H)
+          echo "Last commit SHA found: $LAST_COMMIT_SHA"
+
+          EXPECTED_TITLE=$(git log -1 --format=%s $LAST_COMMIT_SHA)
+          EXPECTED_BODY=$(git log -1 --format=%b $LAST_COMMIT_SHA)
+
+          echo "Overwriting PR fields to match: '$EXPECTED_TITLE'"
+
+          if [ -z "$EXPECTED_BODY" ]; then
+            gh pr edit ${{ github.event.pull_request.number }} --title "$EXPECTED_TITLE"
+          else
+            gh pr edit ${{ github.event.pull_request.number }} --title "$EXPECTED_TITLE" --body "$EXPECTED_BODY"
+          fi
+          
+          echo "LAST_SHA=$LAST_COMMIT_SHA" >> "$GITHUB_ENV"
 
       - name: Extract CC Number from Commit Message
         shell: bash
         run: |
-          COMMIT_MSG=$(git log -1 --pretty=%B ${{ github.event.pull_request.head.sha }})
+          COMMIT_MSG=$(git log -1 --pretty=%B ${{ env.LAST_SHA }})
           echo "COMMIT_MSG: $COMMIT_MSG"
-          CC_NO=$(echo "$COMMIT_MSG" | cut -c2-11 | sed 's/^0*//' | tr -d ' ')
+          CC_NO=$(echo "$COMMIT_MSG" | head -n 1 | cut -c2-11 | sed 's/^0*//' | tr -d ' ')
           echo "CC_NO: $CC_NO"
           if ! echo "$CC_NO" | grep -qE '^[0-9]+$'; then
              echo "Error: The commit message must start with a numeric CC Number."
