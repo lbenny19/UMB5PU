@@ -8,9 +8,11 @@ SITE_FILE="./validation/site_cntl"
 META_FILE="./metadata"
 CHECKOWN_PATH="./hooks/owner_check"
 VAL_DIR="./validation"
-export ZOWE_APP_SETTINGS_PROJECT_ONLY=true
-#export ZOWE_CLI_HOME="$GITHUB_WORKSPACE/.zowe_home"
-#export ZOWE_CLI_TELEMETRY_OPTOUT=true
+#export ZOWE_APP_SETTINGS_PROJECT_ONLY=true
+export ZOWE_CLI_HOME="C:\\zowe_runner"
+export ZOWE_CONFIG_FILE="C:\\zowe_runner\\zowe.config.json"
+export ZOWE_CLI_TELEMETRY_OPTOUT=true
+rm -rf "C:\\zowe_runner\\.zowe\\workspace"
 
 read_site_cntl()  {
     echo "site file: "$SITE_FILE""
@@ -90,28 +92,7 @@ if ! echo "$COMMIT_MSG_CC" | grep -qE '^[0-9]+$'; then
     exit 1
 fi
 
-#rm -rf "$ZOWE_CLI_HOME"
-rm -rf .zowe/
 
-cat << EOF > zowe.config.json
-{
-    "\$schema": "https://zowe.github.io/docs-site/latest/schemas/zowe.config.json",
-    "profiles": {
-        "zosmf": {
-            "type": "zosmf",
-            "properties": {
-                "host": "hog-mfrm-osa-vir.fsg.aus.csc.com",
-                "port": 10443,
-                "user": "Y01137",
-                "rejectUnauthorized": false
-            }
-        }
-    },
-    "defaults": {
-        "zosmf": "zosmf"
-    }
-}
-EOF
 
 read_site_cntl
 metadata_content=$(cat "$META_FILE")
@@ -207,7 +188,7 @@ while IFS=$'/t' read -r M_MODE M_FILE; do
         if [ "$cc_check" = 'N' ]; then
 		    echo "DEBUG: Password length is ${#MF_PASSWORD} characters."
 		    echo "Executing REXX check via Zowe..."
-            RES=$(zowe zos-uss issue command "./cext.sh $COMMIT_MSG_CC; exit" --password="$MF_PASSWORD" )
+            RES=$(zowe zos-uss issue command "./cext.sh $COMMIT_MSG_CC; exit" )
             echo "RES: $RES"
             rm zowe.config.json
             read rcode stat ccown desc <<< "$RES"
