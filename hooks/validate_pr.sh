@@ -221,7 +221,7 @@ while IFS=$'/t' read -r M_MODE M_FILE; do
         if [ "$cc_check" = 'N' ]; then
 		    echo "DEBUG: Password length is ${#MF_PASSWORD} characters."
 		    echo "Executing REXX check via Zowe..."
-            RES=$(zowe zos-uss issue command "./cext.sh $COMMIT_MSG_CC; exit" )
+            RES=$(zowe zos-uss issue command "./cext.sh $COMMIT_MSG_CC; exit" --password="$MF_PASSWORD" )
             echo "RES: $RES"
             rm zowe.config.json
             read rcode stat ccown desc <<< "$RES"
