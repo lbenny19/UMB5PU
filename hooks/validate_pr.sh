@@ -8,42 +8,11 @@ SITE_FILE="./validation/site_cntl"
 META_FILE="./metadata"
 CHECKOWN_PATH="./hooks/owner_check"
 VAL_DIR="./validation"
-# ==============================================================================
-# 1. RUNNER PATH & CONFIGURATION VERIFICATION
-# ==============================================================================
-echo "=== STARTING ZOWE CONFIGURATION VERIFICATION ==="
 
-# Define the absolute target paths
 TARGET_HOME="C:\\Users\\LBenny\\.zowe"
 TARGET_CONFIG="C:\\Users\\LBenny\\.zowe\\zowe.config.json"
 
-echo "Current Execution User Context:"
-whoami
 
-echo "Checking if Zowe Home Directory exists..."
-if [ -d "$TARGET_HOME" ] || [ -d "/c/Users/LBenny/.zowe" ]; then
-    echo "  [SUCCESS] Pipeline can see the .zowe folder structure."
-else
-    echo "  [FAILURE] Pipeline cannot resolve the path to the .zowe folder."
-fi
-
-echo "Checking read access to your real zowe.config.json..."
-if [ -f "$TARGET_CONFIG" ] || [ -f "/c/Users/LBenny/.zowe/zowe.config.json" ]; then
-    echo "  [SUCCESS] Pipeline found your real zowe.config.json file!"
-    echo "  ----------------- CONFIG PREVIEW -----------------"
-    # Print the first 15 lines of the config to verify the profile host details safely
-    head -n 15 "/c/Users/LBenny/.zowe/zowe.config.json"
-    echo "  --------------------------------------------------"
-else
-    echo "  [FATAL ERROR] Pipeline cannot locate or read your zowe.config.json file."
-    echo "  Please verify that 'LBenny' matches your actual Windows user folder name."
-    exit 1
-fi
-
-echo "=== VERIFICATION COMPLETE - SETTING RUNTIME ENVIRONMENT ==="
-
-# Force the execution parameters to bind to your verified configuration paths
-export ZOWE_CLI_TELEMETRY_OPTOUT=true
 export ZOWE_CLI_HOME="$TARGET_HOME"
 export ZOWE_CONFIG_FILE="$TARGET_CONFIG"
 
@@ -221,7 +190,7 @@ while IFS=$'/t' read -r M_MODE M_FILE; do
         if [ "$cc_check" = 'N' ]; then
 		    echo "DEBUG: Password length is ${#MF_PASSWORD} characters."
 		    echo "Executing REXX check via Zowe..."
-            RES=$(zowe zos-uss issue command "./cext.sh $COMMIT_MSG_CC; exit" --password="$MF_PASSWORD" )
+            RES=$(zowe zos-uss issue command "./cext.sh $COMMIT_MSG_CC; exit" --password="$MF_PASSWORD" | sed -n '3p')
             echo "RES: $RES"
             rm zowe.config.json
             read rcode stat ccown desc <<< "$RES"
