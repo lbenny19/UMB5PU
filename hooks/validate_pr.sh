@@ -9,12 +9,11 @@ META_FILE="./metadata"
 CHECKOWN_PATH="./hooks/owner_check"
 VAL_DIR="./validation"
 
-#TARGET_HOME="C:\\Users\\LBenny\\.zowe"
-#TARGET_CONFIG="C:\\Users\\LBenny\\.zowe\\zowe.config.json"
 
 
-#export ZOWE_CLI_HOME="$TARGET_HOME"
-#export ZOWE_CONFIG_FILE="$TARGET_CONFIG"
+
+export ZOWE_CLI_HOME="C:\\Users\\LBenny\\.zowe"
+
 
 read_site_cntl()  {
     echo "site file: "$SITE_FILE""
