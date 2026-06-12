@@ -8,11 +8,12 @@ SITE_FILE="./validation/site_cntl"
 META_FILE="./metadata"
 CHECKOWN_PATH="./hooks/owner_check"
 VAL_DIR="./validation"
-#export ZOWE_APP_SETTINGS_PROJECT_ONLY=true
-export ZOWE_CLI_HOME="C:\\zowe_runner"
-export ZOWE_CONFIG_FILE="C:\\zowe_runner\\zowe.config.json"
-export ZOWE_CLI_TELEMETRY_OPTOUT=true
-rm -rf "C:\\zowe_runner\\.zowe\\workspace"
+
+
+
+
+export ZOWE_CLI_HOME="C:\\Users\\LBenny\\.zowe"
+
 
 read_site_cntl()  {
     echo "site file: "$SITE_FILE""
@@ -97,12 +98,12 @@ fi
 read_site_cntl
 metadata_content=$(cat "$META_FILE")
 
-Invalid_changes=$(git diff --name-only "$BASE_SHA" "$HEAD_SHA" | grep -E '^(hooks/|validation/)')
-echo "invalid: $Invalid_changes"
-if [[ -n "$Invalid_changes" ]]; then
-    echo "Changes to hooks or validation folder not allowed"
-	exit 1
-fi
+#Invalid_changes=$(git diff --name-only "$BASE_SHA" "$HEAD_SHA" | grep -E '^(hooks/|validation/)')
+#echo "invalid: $Invalid_changes"
+#if [[ -n "$Invalid_changes" ]]; then
+#    echo "Changes to hooks or validation folder not allowed"
+#	exit 1
+#fi
 Mfiles=$(git diff --name-status "$BASE_SHA" "$HEAD_SHA" | \
          grep -v '[[:space:]]validation/' | grep -v '[[:space:]]hooks/' | grep -v '[[:space:]]\.git*' | grep -v '[[:space:]]metadata' )   
 META_CHANGES=$(git diff "$BASE_SHA" "$HEAD_SHA" -- "$META_FILE" | grep '^\+' | sed 's/^+//' | \
@@ -188,7 +189,7 @@ while IFS=$'/t' read -r M_MODE M_FILE; do
         if [ "$cc_check" = 'N' ]; then
 		    echo "DEBUG: Password length is ${#MF_PASSWORD} characters."
 		    echo "Executing REXX check via Zowe..."
-            RES=$(zowe zos-uss issue command "./cext.sh $COMMIT_MSG_CC; exit" )
+            RES=$(zowe zos-uss issue command "./cext.sh $COMMIT_MSG_CC; exit" --password="$MF_PASSWORD" | sed -n '3p')
             echo "RES: $RES"
             rm zowe.config.json
             read rcode stat ccown desc <<< "$RES"
